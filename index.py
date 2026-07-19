@@ -1,0 +1,1 @@
+from backend_api_db_fallback import app
