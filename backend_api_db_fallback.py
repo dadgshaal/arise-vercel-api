@@ -37,6 +37,18 @@ SESSIONS: dict = {}
 TOTAL_ROUNDS = 6
 
 
+@app.get("/")
+def root():
+    return {
+        "name": "ARISE API",
+        "status": "online",
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
+
+
 # ============================================================
 # Models
 # ============================================================
@@ -120,15 +132,26 @@ def _save_session_memory(session_id: str, user_id: str, profile: str, initial_le
 
 
 def _get_session(session_id: str) -> dict:
-    session = SESSIONS.get(session_id)
-    if session:
-        return session
+    """
+    Ambil session dengan PostgreSQL sebagai sumber utama.
 
+    Penting untuk deployment serverless seperti Vercel:
+    proses/function bisa berganti antar request. Kalau kita mengutamakan
+    SESSIONS in-memory, data session bisa stale, misalnya current_scenario_id
+    masih None padahal /scenario/next sudah menyimpan skenario aktif ke database.
+
+    Karena itu saat db_utils tersedia, coba load dari database lebih dulu.
+    Kalau database gagal/tidak ada, baru fallback ke memory.
+    """
     if db_utils is not None:
         loaded = db_utils.load_session(session_id)
         if loaded:
             SESSIONS[session_id] = loaded
             return loaded
+
+    session = SESSIONS.get(session_id)
+    if session:
+        return session
 
     raise HTTPException(status_code=404, detail="Sesi tidak ditemukan")
 
